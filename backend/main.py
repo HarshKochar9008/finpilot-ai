@@ -36,6 +36,11 @@ app.add_middleware(
 def startup_event() -> None:
     """Create database tables on startup."""
     init_db()
+    if not ai_service.GEMINI_API_KEY:
+        import logging
+        logging.getLogger("uvicorn.error").warning(
+            "GEMINI_API_KEY is not set. /ai-advice will return 500 until you add it to .env"
+        )
 
 
 @app.post("/transaction", response_model=TransactionResponse)

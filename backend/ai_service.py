@@ -3,12 +3,16 @@ AI financial advice service using Google Gemini API.
 """
 
 import os
+import warnings
 from pathlib import Path
 from dotenv import load_dotenv
 
-# Load .env from project root (parent of backend/)
-_load_env = Path(__file__).resolve().parent.parent / ".env"
-load_dotenv(_load_env)
+# Load .env from project root (parent of backend/) or current working directory
+_project_root = Path(__file__).resolve().parent.parent
+for _env_path in (_project_root / ".env", Path.cwd() / ".env"):
+    if _env_path.exists():
+        load_dotenv(_env_path)
+        break
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 # Primary model; override with GEMINI_MODEL in .env (see https://ai.google.dev/gemini-api/docs/models)
@@ -54,13 +58,26 @@ def get_ai_advice(transaction_summary: str) -> str:
 
     for model in models_to_try:
         try:
-            response = client.models.generate_content(
-                model=model,
-                contents=full_prompt,
-            )
-            if not response.text:
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", UserWarning)  # suppress "non-text parts" warning
+                response = client.models.generate_content(
+                    model=model,
+                    contents=full_prompt,
+                )
+                text = getattr(response, "text", None)
+                if not text and getattr(response, "candidates", None):
+                    try:
+                        cand = response.candidates[0]
+                        content = getattr(cand, "content", None)
+                        parts = getattr(content, "parts", []) if content else []
+                        text = "".join(
+                            getattr(p, "text", "") or "" for p in parts
+                        ).strip() or None
+                    except (IndexError, AttributeError, TypeError):
+                        pass
+            if not text:
                 raise ValueError("Gemini returned an empty response.")
-            return response.text.strip()
+            return text.strip()
         except Exception as e:
             last_error = e
             if _is_quota_exhausted(e):

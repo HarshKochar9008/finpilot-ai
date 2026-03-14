@@ -18,6 +18,11 @@ def fetch_transactions() -> list:
         r = requests.get(f"{API_BASE}/transactions", timeout=5)
         r.raise_for_status()
         return r.json()
+    except requests.ConnectionError:
+        st.error(
+            "Could not connect to the API. Start the backend: `uvicorn backend.main:app --reload --port 8001`"
+        )
+        return []
     except requests.RequestException as e:
         st.error(f"Could not load transactions: {e}")
         return []
@@ -29,6 +34,11 @@ def fetch_summary() -> dict | None:
         r = requests.get(f"{API_BASE}/summary", timeout=5)
         r.raise_for_status()
         return r.json()
+    except requests.ConnectionError:
+        st.error(
+            "Could not connect to the API. Start the backend: `uvicorn backend.main:app --reload --port 8001`"
+        )
+        return None
     except requests.RequestException as e:
         st.error(f"Could not load summary: {e}")
         return None
@@ -60,6 +70,12 @@ def fetch_ai_advice() -> str | None:
         r = requests.get(f"{API_BASE}/ai-advice", timeout=30)
         r.raise_for_status()
         return r.json().get("advice", "")
+    except requests.ConnectionError as e:
+        st.error(
+            "Could not connect to the API. Make sure the backend is running from the project root: "
+            "`uvicorn backend.main:app --reload --port 8001`"
+        )
+        return None
     except requests.RequestException as e:
         msg = str(e)
         if hasattr(e, "response") and e.response is not None:
